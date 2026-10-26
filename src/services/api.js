@@ -1,5 +1,6 @@
 const BASE = 'https://terjun-backend.fastapicloud.dev/api'
 let token = null
+const unauthorizedHandlers = []
 
 export function setToken(t) {
   token = t
@@ -7,6 +8,10 @@ export function setToken(t) {
 
 export function getToken() {
   return token
+}
+
+export function onUnauthorized(fn) {
+  unauthorizedHandlers.push(fn)
 }
 
 export function apiUrl(path) {
@@ -28,6 +33,10 @@ async function request(path, options = {}) {
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
+    if (res.status === 401 && path !== '/auth/login') {
+      token = null
+      unauthorizedHandlers.forEach((fn) => fn())
+    }
     throw new Error(body.detail || res.statusText)
   }
   return res.json()
