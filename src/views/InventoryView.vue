@@ -1,10 +1,12 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { api, csvUrl, openExternal } from '../services/api'
+import Skeleton from '../components/Skeleton.vue'
 
 const ingredients = ref([])
 const usage = ref([])
 const err = ref('')
+const loading = ref(true)
 const adding = ref(false)
 const form = ref({ sku: '', name: '', base_unit: 'gram', min_stock: 0, cost_price: 0, initial_qty: 0 })
 const dateFrom = ref('')
@@ -28,11 +30,13 @@ function openUsageCsv() {
 }
 
 async function load() {
+  loading.value = true
   try {
     err.value = ''
     ingredients.value = await api.get('/inventory/ingredients')
     usage.value = await api.get(`/reports/inventory${usageQuery()}`)
   } catch (e) { err.value = e.message }
+  finally { loading.value = false }
 }
 onMounted(load)
 
@@ -129,44 +133,47 @@ async function addIngredient() {
 
     <p v-if="err" style="color:#DC2626">{{ err }}</p>
 
-    <table>
-      <tr><th>Bahan</th><th>SKU</th><th style="text-align:right">Stok</th><th style="text-align:right">Min</th>
-          <th style="text-align:right">Harga beli/unit</th><th>Tambah stok</th><th>Waste</th></tr>
-      <tr v-for="i in ingredients" :key="i.id">
-        <td>{{ i.name }}</td>
-        <td style="color:#78716C">{{ i.sku }}</td>
-        <td style="text-align:right"><b :style="i.stock_qty <= i.min_stock ? 'color:#DC2626' : ''">{{ num(i.stock_qty) }} {{ i.base_unit }}</b></td>
-        <td style="text-align:right">{{ num(i.min_stock) }}</td>
-        <td style="text-align:right">{{ rupiah(i.cost_price) }}</td>
-        <td>
-          <input v-model="i._restockQty" placeholder="0" type="number" min="0" style="width:80px" />
-          <button class="primary" @click="restock(i)">+</button>
-        </td>
-        <td>
-          <input v-model="i._wasteQty" placeholder="0" type="number" min="0" style="width:80px" />
-          <button class="primary" style="background:#DC2626" @click="waste(i)">−</button>
-        </td>
-      </tr>
-      <tr v-if="!ingredients.length"><td colspan="7" style="color:#78716C">Belum ada bahan — pakai Tambah Bahan Baru di atas.</td></tr>
-    </table>
+    <div v-if="loading" class="card"><Skeleton :rows="7" :height="18" /></div>
+    <template v-else>
+      <table>
+        <tr><th>Bahan</th><th>SKU</th><th style="text-align:right">Stok</th><th style="text-align:right">Min</th>
+            <th style="text-align:right">Harga beli/unit</th><th>Tambah stok</th><th>Waste</th></tr>
+        <tr v-for="i in ingredients" :key="i.id">
+          <td>{{ i.name }}</td>
+          <td style="color:#78716C">{{ i.sku }}</td>
+          <td style="text-align:right"><b :style="i.stock_qty <= i.min_stock ? 'color:#DC2626' : ''">{{ num(i.stock_qty) }} {{ i.base_unit }}</b></td>
+          <td style="text-align:right">{{ num(i.min_stock) }}</td>
+          <td style="text-align:right">{{ rupiah(i.cost_price) }}</td>
+          <td>
+            <input v-model="i._restockQty" placeholder="0" type="number" min="0" style="width:80px" />
+            <button class="primary" @click="restock(i)">+</button>
+          </td>
+          <td>
+            <input v-model="i._wasteQty" placeholder="0" type="number" min="0" style="width:80px" />
+            <button class="primary" style="background:#DC2626" @click="waste(i)">−</button>
+          </td>
+        </tr>
+        <tr v-if="!ingredients.length"><td colspan="7" style="color:#78716C">Belum ada bahan — pakai Tambah Bahan Baru di atas.</td></tr>
+      </table>
 
-    <div style="display:flex; gap:10px; align-items:center; margin-top:24px">
-      <h3 style="margin:0; color:#92400E">Pemakaian bahan</h3>
-      <label style="font-size:13px">dari <input v-model="dateFrom" type="date" @change="load" /></label>
-      <label style="font-size:13px">sampai <input v-model="dateTo" type="date" @change="load" /></label>
-    </div>
-    <table v-if="usage.length">
-      <tr><th>Bahan</th><th style="text-align:right">Pakai</th><th style="text-align:right">Waste</th>
-          <th style="text-align:right">Beli (stok in)</th><th>Satuan</th></tr>
-      <tr v-for="r in usage" :key="r.ingredient_id">
-        <td>{{ r.name }}</td>
-        <td style="text-align:right">{{ num(r.consumed) }}</td>
-        <td style="text-align:right" :style="r.wasted > 0 ? 'color:#DC2626' : ''">{{ num(r.wasted) }}</td>
-        <td style="text-align:right">{{ num(r.purchased) }}</td>
-        <td style="color:#78716C">{{ r.base_unit }}</td>
-      </tr>
-    </table>
-    <p v-else style="color:#78716C">Tidak ada pergerakan stok pada rentang ini.</p>
+      <div style="display:flex; gap:10px; align-items:center; margin-top:24px">
+        <h3 style="margin:0; color:#92400E">Pemakaian bahan</h3>
+        <label style="font-size:13px">dari <input v-model="dateFrom" type="date" @change="load" /></label>
+        <label style="font-size:13px">sampai <input v-model="dateTo" type="date" @change="load" /></label>
+      </div>
+      <table v-if="usage.length">
+        <tr><th>Bahan</th><th style="text-align:right">Pakai</th><th style="text-align:right">Waste</th>
+            <th style="text-align:right">Beli (stok in)</th><th>Satuan</th></tr>
+        <tr v-for="r in usage" :key="r.ingredient_id">
+          <td>{{ r.name }}</td>
+          <td style="text-align:right">{{ num(r.consumed) }}</td>
+          <td style="text-align:right" :style="r.wasted > 0 ? 'color:#DC2626' : ''">{{ num(r.wasted) }}</td>
+          <td style="text-align:right">{{ num(r.purchased) }}</td>
+          <td style="color:#78716C">{{ r.base_unit }}</td>
+        </tr>
+      </table>
+      <p v-else style="color:#78716C">Tidak ada pergerakan stok pada rentang ini.</p>
+    </template>
   </div>
 </template>
 

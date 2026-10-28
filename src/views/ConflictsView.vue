@@ -1,15 +1,19 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { api } from '../services/api'
+import Skeleton from '../components/Skeleton.vue'
 
 const conflicts = ref([])
 const busy = ref('')
 const err = ref('')
+const loading = ref(true)
 
 async function load() {
+  loading.value = true
   try {
     conflicts.value = await api.get('/sync/conflicts')
   } catch (e) { err.value = e.message }
+  finally { loading.value = false }
 }
 onMounted(load)
 
@@ -31,7 +35,8 @@ async function resolve(c) {
       tinjau di sini lalu tandai selesai (data server dipertahankan).
     </p>
     <p v-if="err" style="color:#DC2626">{{ err }}</p>
-    <table v-if="conflicts.length">
+    <div v-if="loading" class="card"><Skeleton :rows="5" :height="18" /></div>
+    <table v-else-if="conflicts.length">
       <tr><th>Waktu</th><th>Entitas</th><th>Alasan</th><th>Status</th><th></th></tr>
       <tr v-for="c in conflicts.slice(0, 50)" :key="c.id">
         <td>{{ (c.created_at || '').slice(0, 16).replace('T', ' ') }}</td>

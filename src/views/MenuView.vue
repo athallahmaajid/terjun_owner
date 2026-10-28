@@ -1,17 +1,21 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { api } from '../services/api'
+import Skeleton from '../components/Skeleton.vue'
 
 const items = ref([])
 const categories = ref([])
 const err = ref('')
+const loading = ref(true)
 const rupiah = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID')
 
 async function load() {
+  loading.value = true
   try {
     items.value = await api.get('/menu/items')
     categories.value = await api.get('/menu/categories')
   } catch (e) { err.value = e.message }
+  finally { loading.value = false }
 }
 onMounted(load)
 
@@ -46,7 +50,8 @@ const newCat = ref('')
       <button class="primary" @click="makeCategory">Tambah Kategori</button>
     </div>
     <p v-if="err" style="color:#DC2626">{{ err }}</p>
-    <table>
+    <div v-if="loading" class="card"><Skeleton :rows="8" :height="18" /></div>
+    <table v-else>
       <tr><th>Nama</th><th>Kategori</th><th style="text-align:right">Harga</th><th>Aktif</th><th></th></tr>
       <tr v-for="i in items" :key="i.id">
         <td><input v-model="i.name" style="border:none; background:transparent; width:100%" /></td>

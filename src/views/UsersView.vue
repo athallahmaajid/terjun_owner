@@ -1,17 +1,21 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { api } from '../services/api'
+import Skeleton from '../components/Skeleton.vue'
 
 const users = ref([])
 const roles = ref([])
 const err = ref('')
+const loading = ref(true)
 const form = ref({ username: '', full_name: '', password: '', role_name: 'cashier' })
 
 async function load() {
+  loading.value = true
   try {
     users.value = await api.get('/auth/users')
     roles.value = await api.get('/auth/roles')
   } catch (e) { err.value = e.message }
+  finally { loading.value = false }
 }
 onMounted(load)
 
@@ -60,7 +64,8 @@ async function setRole(u) {
       <button class="primary" @click="create">Tambah Pengguna</button>
     </div>
     <p v-if="err" style="color:#DC2626">{{ err }}</p>
-    <table>
+    <div v-if="loading" class="card"><Skeleton :rows="5" :height="18" /></div>
+    <table v-else>
       <tr><th>Username</th><th>Nama</th><th>Role</th><th>Status</th><th>Aksi</th></tr>
       <tr v-for="u in users" :key="u.id">
         <td><b>{{ u.username }}</b></td>

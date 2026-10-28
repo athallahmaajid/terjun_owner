@@ -1,16 +1,21 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { api } from '../services/api'
+import Skeleton from '../components/Skeleton.vue'
 
 const data = ref(null)
 const err = ref('')
 const from = ref('')
 const to = ref('')
+const loading = ref(true)
+const barReady = ref(false)
 
 const rupiah = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID')
 
 async function load() {
   err.value = ''
+  loading.value = true
+  barReady.value = false
   try {
     const qs = []
     if (from.value) qs.push(`date_from=${from.value}`)
@@ -18,6 +23,9 @@ async function load() {
     data.value = await api.get(`/dashboard/summary${qs.length ? '?' + qs.join('&') : ''}`)
   } catch (e) {
     err.value = e.message
+  } finally {
+    loading.value = false
+    nextTick(() => { barReady.value = true })
   }
 }
 onMounted(load)
@@ -33,10 +41,39 @@ const maxCat = computed(() =>
     <div style="display:flex; gap:10px; margin-bottom:14px">
       <input v-model="from" type="date" @change="load" />
       <input v-model="to" type="date" @change="load" />
-      <button class="primary" @click="load">Muat</button>
+      <button class="primary" :disabled="loading" @click="load">Muat</button>
     </div>
     <p v-if="err" style="color:#DC2626">{{ err }}</p>
-    <template v-if="data">
+
+    <template v-if="loading">
+      <div class="kpis">
+        <div class="card" v-for="n in 5" :key="n">
+          <Skeleton :rows="1" :height="11" />
+          <div style="height:8px" />
+          <Skeleton :rows="1" :height="22" />
+        </div>
+      </div>
+      <div class="duo">
+        <div class="card">
+          <h3>Penjualan per jam</h3>
+          <Skeleton :rows="1" :height="120" />
+        </div>
+        <div class="card">
+          <h3>Per kategori</h3>
+          <Skeleton :rows="6" :height="14" />
+        </div>
+      </div>
+      <div class="duo">
+        <div class="card"><h3>Produk teratas</h3><Skeleton :rows="5" /></div>
+        <div class="card"><h3>Metode bayar</h3><Skeleton :rows="4" /></div>
+      </div>
+      <div class="duo">
+        <div class="card"><h3>Stok rendah</h3><Skeleton :rows="4" /></div>
+        <div class="card"><h3>Aktivitas terkini</h3><Skeleton :rows="6" /></div>
+      </div>
+    </template>
+
+    <template v-else-if="data">
       <div class="kpis">
         <div class="card" v-for="k in [
           ['Gross Sales', rupiah(data.kpi?.gross_sales)],
@@ -54,17 +91,24 @@ const maxCat = computed(() =>
         <div class="card">
           <h3>Penjualan per jam</h3>
           <div class="bars">
-            <div v-for="h in data.sales_per_hour" :key="h.hour" class="barwrap">
-              <div class="bar" :style="{ height: (h.total / maxHour * 100) + '%' }" :title="`${h.hour}:00 — ${rupiah(h.total)}`" />
+            <div v-for="(h, i) in data.sales_per_hour" :key="h.hour" class="barwrap">
+              <div
+                class="bar"
+                :class="{ grow: barReady }"
+                :style="{ height: barReady ? (h.total / maxHour * 100) + '%' : '0%', transitionDelay: (i * 0.04) + 's' }"
+                :title="`${h.hour}:00 — ${rupiah(h.total)}`"
+              />
               <small v-if="h.hour % 3 === 0">{{ h.hour }}</small>
             </div>
           </div>
         </div>
         <div class="card">
           <h3>Per kategori</h3>
-          <div v-for="c in data.category_sales.slice(0, 6)" :key="c.name" class="crow">
+          <div v-for="(c, ci) in data.category_sales.slice(0, 6)" :key="c.name" class="crow">
             <span>{{ c.name }}</span>
-            <div class="cbar"><div :style="{ width: (c.revenue / maxCat * 100) + '%' }" /></div>
+            <div class="cbar">
+              <div class="cfill" :class="{ grow: barReady }" :style="{ width: barReady ? (c.revenue / maxCat * 100) + '%' : '0%', transitionDelay: (ci * 0.08) + 's' }" />
+            </div>
             <b style="min-width:96px; text-align:right">{{ rupiah(c.revenue) }}</b>
           </div>
         </div>
@@ -131,10 +175,12 @@ const maxCat = computed(() =>
 h3 { margin: 0 0 12px; font-size: 14px; color: #92400E; }
 .bars { display: flex; align-items: flex-end; gap: 3px; height: 120px; }
 .barwrap { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
-.bar { width: 100%; background: #B45309; border-radius: 3px 3px 0 0; min-height: 2px; }
+.bar { width: 100%; background: #B45309; border-radius: 3px 3px 0 0; min-height: 0; }
+.bar.grow { transition: height 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
 small { color: #78716C; font-size: 9px; }
 .crow { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
 .crow span { min-width: 100px; }
 .cbar { flex: 1; height: 10px; background: #FEF3C7; border-radius: 5px; overflow: hidden; }
-.cbar > div { height: 100%; background: #92400E; }
+.cfill { height: 100%; background: #92400E; width: 0; }
+.cfill.grow { transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
 </style>
