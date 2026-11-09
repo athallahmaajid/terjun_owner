@@ -22,6 +22,15 @@ export function isTauri() {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
 
+function formatDetail(detail) {
+  if (!detail) return ''
+  if (typeof detail === 'string') return detail
+  if (!Array.isArray(detail)) return String(detail)
+  return detail
+    .map((d) => `${(d.loc || []).slice(1).join('.') || 'body'}: ${d.msg || d.type || 'tidak valid'}`)
+    .join('; ')
+}
+
 async function request(path, options = {}) {
   const res = await fetch(apiUrl(path), {
     ...options,
@@ -37,7 +46,7 @@ async function request(path, options = {}) {
       token = null
       unauthorizedHandlers.forEach((fn) => fn())
     }
-    throw new Error(body.detail || res.statusText)
+    throw new Error(formatDetail(body.detail) || res.statusText)
   }
   return res.json()
 }
