@@ -1,4 +1,4 @@
-name: Build Windows Installer
+name: Build Windows Installer (Windows 7)
 
 on:
   push:
@@ -15,6 +15,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # Rust 1.77.2 is the last toolchain that supports Windows 7
+      # (Tauri 2.11.x is the last Tauri version that runs on Windows 7)
+      - name: Install Rust 1.77.2
+        run: |
+          rustup toolchain install 1.77.2 --profile minimal
+          rustup default 1.77.2
+          rustc -V
+          cargo -V
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
@@ -23,6 +32,28 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Cache WebView2 fixed runtime
+        uses: actions/cache@v4
+        with:
+          path: webview2-109.nupkg
+          key: webview2-fixed-runtime-x64-109.0.1518.78
+
+      # WebView2 v109 is the last runtime version that runs on Windows 7.
+      # Tauri embeds it into the installer (webviewInstallMode: fixedRuntime).
+      - name: Setup WebView2 v109 (last version supporting Windows 7)
+        shell: bash
+        run: |
+          if [ ! -f webview2-109.nupkg ]; then
+            curl -fsSL -o webview2-109.nupkg \
+              "https://api.nuget.org/v3-flatcontainer/webview2.runtime.x64/109.0.1518.78/webview2.runtime.x64.109.0.1518.78.nupkg"
+          fi
+          7z x -y webview2-109.nupkg -o"$RUNNER_TEMP/wv2" "contentFiles/any/any/WebView2/*" >/dev/null
+          dest="src-tauri/Microsoft.WebView2.FixedVersionRuntime.109.0.1518.78.x64"
+          rm -rf "$dest"
+          mkdir -p "$dest"
+          cp -r "$RUNNER_TEMP/wv2/contentFiles/any/any/WebView2/." "$dest/"
+          test -f "$dest/msedgewebview2.exe" && echo "WebView2 runtime ready"
 
       - name: Build (tag push → draft release)
         if: github.ref_type == 'tag'

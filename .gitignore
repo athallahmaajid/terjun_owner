@@ -31,3 +31,7 @@ dist-ssr
 # Tauri / Rust
 src-tauri/target/
 src-tauri/gen/schemas
+
+# WebView2 fixed runtime (downloaded by CI, ~140MB, not committed)
+src-tauri/Microsoft.WebView2.FixedVersionRuntime.*/
+webview2-109.nupkg
