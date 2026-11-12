@@ -10,7 +10,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@tauri-apps/plugin-opener": "^2.7.2",
+    "@tauri-apps/plugin-opener": "2.5.5",
     "pinia": "^3.0.3",
     "vue": "^3.5.22",
     "vue-router": "^4.6.3"
